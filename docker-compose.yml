@@ -1,7 +1,7 @@
 services:
   postgres:
     image: pgvector/pgvector:pg17
-    container_name: postgres_rag
+    container_name: postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -28,6 +28,14 @@ services:
       psql "postgresql://postgres@postgres:5432/rag" -v ON_ERROR_STOP=1
       -c "CREATE EXTENSION IF NOT EXISTS vector;"
     restart: "no"
-
+  python_app:
+    build: .
+    container_name: python_dev
+    volumes:
+      - ./:/app
+    tty: true
+    stdin_open: true
+    working_dir: /app
+    command: python main.py
 volumes:
   postgres_data:
