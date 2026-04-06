@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 def _resolve_pdf_path() -> str:
     raw = os.getenv("PDF_PATH")
     if not raw:
