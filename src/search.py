@@ -1,3 +1,15 @@
+import os
+from dotenv import load_dotenv
+
+from utf8_sanitize import sanitize_utf8
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_postgres import PGVector
+from langchain.prompts import PromptTemplate
+from langchain.chat_models import init_chat_model
+from langchain_core.output_parsers import StrOutputParser
+
+load_dotenv()
+
 PROMPT_TEMPLATE = """
 CONTEXTO:
 {contexto}
@@ -25,5 +37,38 @@ PERGUNTA DO USUÁRIO:
 RESPONDA A "PERGUNTA DO USUÁRIO"
 """
 
-def search_prompt(question=None):
-    pass
+def search_prompt():
+  for k in ("GOOGLE_EMBEDDING_MODEL","DATABASE_URL","PG_VECTOR_COLLECTION_NAME","GOOGLE_API_KEY"):
+      if not os.getenv(k):
+          raise RuntimeError(f"Environment variable {k} is not set")
+
+  embeddings = GoogleGenerativeAIEmbeddings(model=os.getenv("GOOGLE_EMBEDDING_MODEL"))
+
+  store = PGVector(
+      embeddings=embeddings,
+      collection_name=os.getenv("PG_VECTOR_COLLECTION_NAME"),
+      connection=os.getenv("DATABASE_URL"),
+      use_jsonb=True,
+  )
+
+  llm = init_chat_model(model="gemini-2.5-flash", model_provider="google_genai")
+
+  prompt_template = PromptTemplate(
+      input_variables=["contexto", "pergunta"],
+      template=PROMPT_TEMPLATE
+  )
+
+  def retrieve_and_answer(query: str) -> str:
+      query = sanitize_utf8(query)
+      results = store.similarity_search_with_score(query, k=10)
+
+      contexto = sanitize_utf8(
+          "\n\n".join(doc.page_content for doc, _ in results)
+      )
+
+      chain = prompt_template | llm | StrOutputParser()
+
+      response = chain.invoke({"contexto": contexto, "pergunta": query})
+      return response
+
+  return retrieve_and_answer
