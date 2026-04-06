@@ -36,6 +36,6 @@ services:
     tty: true
     stdin_open: true
     working_dir: /app
-    command: python main.py
+    command: ["sleep", "infinity"]
 volumes:
   postgres_data:
